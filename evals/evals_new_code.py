@@ -11,42 +11,31 @@ from eval_tools import (
     load_evaluations_from_file,
 )
 
-from gpt_engineer.core.chat_to_files import parse_chat
 from gpt_engineer.core.db import DB
 
 app = typer.Typer()  # creates a CLI app
 
 
 def single_evaluate(eval_ob: dict) -> list[bool]:
-    """Evaluates a single prompt."""
+    """Evaluates a single prompt for creating a new project."""
     print(f"running evaluation: {eval_ob['name']}")
 
-    # Step 1. Setup known project
-    # load the known files into the project
-    # the files can be anywhere in the projects folder
-
     workspace = DB(eval_ob["project_root"])
-    file_list_string = ""
-    code_base_abs = Path(os.getcwd()) / eval_ob["project_root"]
+    base_abs = Path(os.getcwd())
+    code_base_abs = base_abs / eval_ob["project_root"]
 
-    files = parse_chat(open(eval_ob["code_blob"]).read())
-    for file_name, file_content in files:
-        absolute_path = code_base_abs / file_name
-        print("creating: ", absolute_path)
-        workspace[absolute_path] = file_content
-        file_list_string += str(absolute_path) + "\n"
+    # write to the consent file so we don't get a prompt that hangs
+    consent_file = base_abs / ".gpte_consent"
+    consent_file.write_text("false")
 
-    # create file_list.txt (should be full paths)
-    workspace["file_list.txt"] = file_list_string
+    # Step 1. Setup known project
+    # write the folder and prompt file
 
-    # create the prompt
-    workspace["prompt"] = eval_ob["improve_code_prompt"]
+    print(f"prompt: {eval_ob['code_prompt']}")
+    prompt_path = code_base_abs / "prompt"
+    workspace[prompt_path] = f"{eval_ob['code_prompt']}\n"
 
-    # Step 2.  run the project in improve code mode,
-    # make sure the flag -sf is set to skip feedback
-
-    print(f"Modifying code for {eval_ob['project_root']}")
-
+    # Step 2. Run gpt-engineer
     log_path = code_base_abs / "log.txt"
     log_file = open(log_path, "w")
     process = subprocess.Popen(
@@ -57,7 +46,7 @@ def single_evaluate(eval_ob: dict) -> list[bool]:
             "gpt_engineer.cli.main",
             eval_ob["project_root"],
             "--steps",
-            "eval_improve_code",
+            "eval_new_code",
             "--temperature",
             "0",
         ],
@@ -68,8 +57,8 @@ def single_evaluate(eval_ob: dict) -> list[bool]:
     print(f"waiting for {eval_ob['name']} to finish.")
     process.wait()  # we want to wait until it finishes.
 
-    # Step 3. Run test of modified code, tests
-    print("running tests on modified code")
+    print("running tests on the newly generated code")
+    # test the code with the executable name in the config file
     evaluation_results = []
     for test_case in eval_ob["expected_results"]:
         print(f"checking: {test_case['type']}")
@@ -85,12 +74,12 @@ def run_all_evaluations(eval_list: list[dict]) -> None:
         results.append(single_evaluate(eval_ob))
 
     # Step 4. Generate Report
-    generate_report(eval_list, results, "evals/IMPROVE_CODE_RESULTS.md")
+    generate_report(eval_list, results, "evals/EVAL_NEW_CODE_RESULTS.md")
 
 
 @app.command()
 def main(
-    test_file_path: str = typer.Argument("evals/existing_code_eval.yaml", help="path"),
+    test_file_path: str = typer.Argument("evals/new_code_eval.yaml", help="path"),
 ):
     if not os.path.isfile(test_file_path):
         raise Exception(f"sorry the file: {test_file_path} does not exist.")
