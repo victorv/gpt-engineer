@@ -1,6 +1,6 @@
 autodoc_pydantic>=1.8.0
 myst_parser>=0.18.1
-nbsphinx==0.8.9
+nbsphinx==0.9.3
 sphinx==4.5.0
 sphinx-autobuild==2021.3.14
 sphinx_rtd_theme==1.0.0
