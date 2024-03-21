@@ -14,7 +14,7 @@ dependencies = [
   'openai == 0.27.8',
   'pre-commit == 3.3.3',
   'pytest == 7.3.1',
-  'ruff == 0.0.272',
+  'ruff ==0.3.4',
   'termcolor==2.3.0',
   'typer >= 0.3.2',
   'rudder-sdk-python == 2.0.2',
